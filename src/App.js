@@ -1,12 +1,130 @@
 import { useEffect, useState } from "react";
 import validator from "validator"
+import axios from "axios";
+import sadecedış from './images/sadecedış.png';
+import { Puff} from 'react-loader-spinner';
+
 function App() {
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [isValid,setIsValid]=useState(false);
   const [isSubmitted,setIsSubmitted]=useState(false);
   const [logged,setLogged]=useState(false);
-  const [reports, setReports]=useState(undefined);
+  const [reports, setReports]=useState([]);
+  const [bgColor, setBgColor] = useState(null);
+  const [cansend, setCanSend] = useState(true);
+const openaiKey = "";
+
+const encodeImage = async (imageUrl) => {
+  try {
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const base64Image = btoa(
+          new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+      return base64Image;
+  } catch (error) {
+      console.error("Error fetching image: ", error);
+      return null;
+  }
+};
+
+
+const headers = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${openaiKey}`
+};
+
+const sendRequest = async () => {
+    setCanSend(false);
+    const imageUrl = `${reports[0].fotourl}`;
+    const base64Image = await encodeImage(imageUrl);
+    if (!base64Image) return;
+
+    const payload = {
+        "model": "gpt-4o-mini",
+        "response_format": { "type": "json_object" },
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": `
+Sana verilen "engel" ve "açıklama" başlıkları altındaki metinlerin verilen resimlerle uyumlu olup olmadığını test etmelisin,verilen "engel" kategorisindeki şeyler sokakta görülebilecek şeyler olmalı ve eğer sokakta bulunan çukur direk ve benzeri eşyalar belirtildiyse gerçekten engel olabilecek şeyler olmalı , örnek olarak bir manzara verilebilir, eğer verilen açıklamadaki betimleme içeriğe uygun ve saygılı bir biçimde yazıldıysa onay verebilirsin, başka bir örnek eğer resim bir duba, direk, çukur resmi ise ve "engel" başlığı altındaki açıklama ve "açıklama" başlığı altındaki açıklamayla eşleşiyorsa onay verebilirsin, vereceğin cevaplar her zaman JSON formatında olmalı ve şu şekilde olması lazım {"success":"failed"} ya da {"success":"passed"}
+                        `
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": `Engel: ${reports[0].classification}, Açıklama: Açıklama: ${reports[0].description}`
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": `data:image/jpeg;base64,${base64Image}`
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 300
+        
+    };
+
+    try {
+        const response = await axios.post("https://api.openai.com/v1/chat/completions", payload, { headers });
+        console.log(response.data);
+        const contentData = response.data.choices[0].message.content;
+        const jsonData = JSON.parse(contentData);
+        console.log(jsonData.success);
+        var token = localStorage.getItem("token")
+
+        if(jsonData.success === "failed"){
+          fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/disapprove",{
+          headers:{
+            "Content-Type":"application/json",
+          },
+          method:"POST",
+          body:JSON.stringify({token:token,ruid:reports[0]._id})
+          }).then(r=>r.json()).then(
+            result=>{
+              document.getElementById(reports[0]._id).classList.add("wh-0")
+              setReports(reports.filter((report, index) => index !== 0))
+            }
+          )
+        }else{
+          fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/disapprove",{
+            headers:{
+              "Content-Type":"application/json",
+            },
+            method:"POST",
+            body:JSON.stringify({token:token,ruid:reports[0]._id})
+          }).then(r=>r.json()).then(
+                    result=>{
+                      document.getElementById(reports[0]._id).classList.add("wh-0")
+                      setReports(reports.filter((report, index) => index !== 0))
+                    }
+                  )
+        }
+        if(jsonData.success==="failed"){
+          alert("YAPAY ZEKANIN CEVABI \nİPTAL EDİLDİ !!!!")
+        }else{
+          alert("YAPAY ZEKANIN CEVABI \nONAY VERİLDİ !!!!")
+        }
+
+    } catch (error) {
+        console.error(`Error: ${error.message}`);
+    }
+
+    setCanSend(true);
+    setBgColor(null);
+
+};
+
   useEffect(()=>{
     var token = localStorage.getItem("token")
     if(token){
@@ -40,34 +158,54 @@ function App() {
     }
   },[isValid])
   useEffect(()=>{
-    const timeout = setTimeout(()=>{
-      var token = localStorage.getItem("token")
-      if(token){
-      fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/adminpage",{
-        headers:{
-          "Content-Type":"application/json",
-        },
-        method:"POST",
-        body:JSON.stringify({token:token})
-      }).then(r=>r.json()).then(
-        r=>{
-          console.log(r)
-          if(r.reports){
-            setLogged(true)
-            setReports(r.reports)
-          }
-        }
-      )
-    }
-  }
-    ,1000)
-    return ()=>clearTimeout(timeout)
-  },[])
+    console.log(reports)
+  },[reports])
+  useEffect(() => {
+    const interval = setInterval(() => {
+      var token = localStorage.getItem("token");
+      if (token) {
+        fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/adminpage", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          body: JSON.stringify({ token: token }),
+        })
+          .then((r) => r.json())
+          .then((r) => {
+            console.log(r);
+            if (r.reports) {
+              setLogged(true);
+              setReports(r.reports);
+            }
+          });
+      }
+    }, 1000); // Her 300ms'de bir çalışacak
+  
+    return () => {
+      clearInterval(interval); // Component unmount olduğunda interval temizlenir
+    };
+  }, []);
   return (
-    <div className="flex flex-col relative items-center bg-purple-200">
-    <div className="absolute top-0 left-0 flex flex-col p-4">
+    <div className="flex flex-col relative overflow-hidden" style={{background: bgColor ? `url(${bgColor}) center/cover no-repeat` : "white",}}>
+    <div className="absolute w-64 h-64 rounded-full" style={{top:window.innerHeight/2-128,left:window.innerWidth/2-128, backgroundColor:"#fff7f0"}}>
+    {!cansend?
+      <Puff
+  visible={true}
+  height="256"
+  width="256"
+  color="#70427d"
+  ariaLabel="puff-loading"
+  wrapperStyle={{}}
+  wrapperClass=""
+  />
+  :
+  <img src={sadecedış} alt="" className="absolute w-64 h-64" />
+  }
+    </div>
+    <div className="absolute top-0 right-0 flex flex-col p-4">
     <div className="flex">
-    <div className=" p-2 bg-yellow-500 rounded-xl ">
+    <div className=" p-2 bg-red-800 text-white rounded-xl ">
       <button onClick={()=>{
         console.log("tıklandı")
         document.getElementById("menubar").classList.toggle("wh-0")
@@ -78,21 +216,34 @@ function App() {
     </div>
     
     <div id="menubar" className="flex flex-col ">
-      <button className=" bg-red-400 rounded-lg m-2 p-1">
+      <button className=" rounded-lg m-2 p-1 bg-purple-800 text-white">
         Onaylananları Gör
       </button>
-      <button className=" bg-red-400 rounded-lg m-2 p-1">
+      <button className=" bg-purple-800 rounded-lg text-white m-2 p-1">
         Kaldırma Taleplerini Gör
       </button>
-      <button className=" bg-red-400 rounded-lg m-2 p-1" >
+      <button className=" bg-purple-800 rounded-lg m-2 p-1 text-white" >
         İptal Taleplerini Gör
       </button>
+      <button className=" bg-blue-600 text-white font-bold rounded-lg m-2 p-1" onClick={()=>{
+        if(cansend && reports.length>0){
+          setBgColor("https://gifdb.com/images/high/ai-finger-print-recognition-zl4ku51ojamo22k9.gif");
+          console.log("sent")
+          sendRequest();
+        }
+        
+}} >
+        Yapay Zekayı Aç
+      </button>
+
+      
       </div>
     
     </div>
     <div
-    className="w-1/3 min-h-screen flex flex-col items-center bg-yellow-50  "
+    className="w-1/3 min-h-screen flex flex-col items-center "
     >
+
  {!logged?<form className="items-center flex flex-col  gap-2 mt-2 p-2 justify-evenly" autoComplete="off" onSubmit={(e)=>{e.preventDefault();}}>
     <input type="text"
     placeholder="Enter Your Email"
@@ -166,20 +317,20 @@ function App() {
     </button>
     </form>
     :
-    <div>
-      {reports && reports.map(
+    <div className=" h-screen overflow-x-hidden no-scrollbar">
+      {reports.length > 0 && reports.map(
         (report,index)=>{
           return(
-            <div id={index} key={index} className="flex m-4 items-center transition duration-500">
+            <div id={report._id} key={index} className="flex m-4 items-center transition duration-500">
             <img src={report.fotourl} alt="foto " className=" object-contain rounded-xl w-3/5 mr-4" />
             <div>
-            <h1 className="font-bold text-xl text-red-600">Classification : {report.classification}</h1>
+            <h1 className="font-bold text-xl text-red-600">Engel : {report.classification}</h1>
             <p className="text-xl font-bold text-blue-600" >Açıklama: {(report.description)}</p>
             <div>
             <a className=" text-emerald-400 hover:text-emerald-800 transition duration-500" href={"https://gps-coordinates.org/my-location.php?lat="+report.location_lat+"&"+"lng="+report.location_long} target="_blank">Adresi Gör</a>
             </div>
             <div className="flex flex-col gap-2">
-            <button className="p-4 bg-purple-600 rounded-lg text-white text-xl font-bold"
+            <button className="p-2 bg-purple-600 rounded-lg text-white text-lg font-bold"
             
             onClick={()=>{
               var token = localStorage.getItem("token")
@@ -191,13 +342,14 @@ function App() {
         body:JSON.stringify({token:token,ruid:report._id})
       }).then(r=>r.json()).then(
                 result=>{
-                  document.getElementById(index).classList.add("wh-0")
+                  document.getElementById(report._id).classList.add("wh-0")
+                  setReports(reports.filter((report, index) => index !== 0))
                 }
               )
             }}
             
             >ONAYLA</button>
-            <button className="p-4 bg-red-600 rounded-lg text-white text-xl font-bold"
+            <button className="p-2 bg-red-600 rounded-lg text-white text-lg font-bold"
             
             onClick={()=>{
               var token = localStorage.getItem("token")
@@ -209,10 +361,12 @@ function App() {
         body:JSON.stringify({token:token,ruid:report._id})
       }).then(r=>r.json()).then(
                 result=>{
-                  document.getElementById(index).classList.add("wh-0")
+                  document.getElementById(report._id).classList.add("wh-0")
+                  setReports(reports.filter((report, index) => index !== 0))
                 }
               )
-            }}
+            }
+          }
             
             >İPTAL ET</button></div>
             </div>
