@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer components{
+    .validated{
+        @apply bg-green-600 border-white
+    }
+    .notvalidated{
+        @apply bg-red-600 border-yellow-200
+    }
+    .blurry{
+        @apply blur-sm text-red-500
+    }
+}
+.wh-0{
+    display: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
