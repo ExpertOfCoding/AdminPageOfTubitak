@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const Approved = () => {
-    const [limit,setLimit] = useState(20);
+    const [limit,setLimit] = useState(50);
     const [reports,setReports] = useState([]);
     const navigator = useNavigate();
     const fetchdata = () =>{
@@ -26,6 +26,16 @@ const Approved = () => {
     useEffect(()=>{
 fetchdata();
     },[])
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchdata();
+        }, 1000); // Her 300ms'de bir çalışacak
+      
+        return () => {
+          clearInterval(interval); // Component unmount olduğunda interval temizlenir
+        };
+      }, []);
     return (
         <div className="flex relative w-screen h-screen">
             <div className="absolute top-0 right-0">

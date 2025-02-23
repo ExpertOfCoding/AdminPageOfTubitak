@@ -9,7 +9,7 @@ function App() {
   const [password,setPassword]=useState("");
   const [isValid,setIsValid]=useState(false);
   const [isSubmitted,setIsSubmitted]=useState(false);
-  const [logged,setLogged]=useState(false);
+  const [logged,setLogged]=useState(false); 
   const [reports, setReports]=useState([]);
   const [bgColor, setBgColor] = useState(null);
   const [cansend, setCanSend] = useState(true);
@@ -96,7 +96,7 @@ Sana verilen "engel" ve "açıklama" başlıkları altındaki metinlerin verilen
             }
           )
         }else{
-          fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/disapprove",{
+          fetch("https://turnkey-setup-444120-m3.uw.r.appspot.com/approve",{
             headers:{
               "Content-Type":"application/json",
             },
@@ -363,6 +363,7 @@ Sana verilen "engel" ve "açıklama" başlıkları altındaki metinlerin verilen
         body:JSON.stringify({token:token,ruid:report._id})
       }).then(r=>r.json()).then(
                 result=>{
+                  console.log(result)
                   document.getElementById(report._id)?.classList.add("wh-0")
                 }
               )
